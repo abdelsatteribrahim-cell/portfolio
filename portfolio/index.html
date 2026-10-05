@@ -61,10 +61,10 @@ h1{font-size:clamp(4rem,10vw,8rem)}
 .info li{display:flex;justify-content:space-between;gap:16px;padding:14px 0;border-bottom:1px solid var(--line)}
 .info span:first-child{color:var(--muted)}
 .link{color:var(--lime);font-weight:700;border-bottom:2px solid var(--lime);padding-bottom:4px}
-.project-pdf-link{display:inline-flex;align-items:center;gap:10px;margin-top:18px;padding:12px 16px;border:1px solid rgba(212,234,107,.45);border-radius:999px;color:var(--lime);font-weight:700;animation:pdf-glow 2.2s ease-in-out infinite;transition:background .2s ease,color .2s ease,transform .2s ease}
-.project-pdf-link:hover{background:var(--lime);color:var(--bg);transform:translateY(-2px)}
+.project-pdf-link{display:inline-flex;align-items:center;gap:10px;margin-top:18px;padding:12px 16px;border:1px solid rgba(212,234,107,.45);border-radius:999px;color:var(--lime);font-weight:700;transition:background .18s ease,color .18s ease,transform .18s ease}
+.project-pdf-link:hover{background:var(--lime);color:var(--bg);transform:translateY(-1px)}
+.project-pdf-link:active{transform:translateY(0)}
 .project-pdf-link span{font-size:.7rem;letter-spacing:.08em;border:1px solid currentColor;border-radius:4px;padding:2px 5px}
-@keyframes pdf-glow{0%,100%{box-shadow:0 0 0 rgba(212,234,107,0)}50%{box-shadow:0 0 18px rgba(212,234,107,.25)}}
 
 .about .wrap{display:grid;grid-template-columns:1fr 1.4fr;gap:56px}
 .about h3{font-size:1.6rem;font-weight:500;line-height:1.35;margin-bottom:18px}
@@ -90,8 +90,7 @@ footer b{color:var(--lime)}
  nav{gap:16px}
  section{padding:64px 0}
 }
-@media(prefers-reduced-motion:reduce){html{scroll-behavior:auto}}
-@media(prefers-reduced-motion:reduce){.project-pdf-link{animation:none;transition:none}}
+@media(prefers-reduced-motion:reduce){html{scroll-behavior:auto}.project-pdf-link{transition:none}}
 </style>
 </head>
 <body>
@@ -112,7 +111,7 @@ footer b{color:var(--lime)}
       <a class="ico" href="https://www.instagram.com/your-profile" aria-label="Instagram"><i class="fa-brands fa-instagram"></i></a>
     </div>
   </div>
-  <div class="slot portrait"><img src="images/me.jpg.png" alt="Portrait of Abdelsatter Ibrahim" onerror="this.remove()"></div>
+  <div class="slot portrait"><img src="images/optimized/me.jpg.webp" alt="Portrait of Abdelsatter Ibrahim" fetchpriority="high" decoding="async" onerror="this.remove()"></div>
 </div></section>
 
 <section id="work"><div class="wrap">
@@ -180,7 +179,7 @@ const projects = [
     folder:"Mall Shop Drawing", count:3, extension:"jpeg", link:"" }
 ];
 projects.forEach(p => {
-  p.images = Array.from({length: p.count}, (_, i) => `images/${p.folder}/${i + 1}.${p.extension}`);
+  p.images = Array.from({length: p.count}, (_, i) => `images/optimized/${p.folder}/${i + 1}.webp`);
 });
 const root = document.getElementById("projects");
 const projectCategories = [
@@ -196,7 +195,7 @@ projectCategories.forEach(category=>{
   categoryProjects.forEach(p=>{
     const el = document.createElement("article");
     el.className = "project";
-    const slides = p.images.map((src,i)=>`<img src="${src}" alt="${p.title} image ${i+1}" ${i?'hidden':''} onerror="this.remove()">`).join("");
+    const slides = p.images.map((src,i)=>`<img ${i ? `data-src="${src}" hidden` : `src="${src}" loading="lazy"`} alt="${p.title} image ${i+1}" decoding="async" onerror="this.remove()">`).join("");
     const arrows = p.images.length>1 ? `<div class="arrows"><button type="button" data-d="-1" aria-label="Previous image">&#8592;</button><button type="button" data-d="1" aria-label="Next image">&#8594;</button></div>` : "";
     el.innerHTML = `
       <div class="slot gallery"><span class="tag">${p.tag}</span>${slides}${arrows}</div>
@@ -207,12 +206,31 @@ projectCategories.forEach(category=>{
         ${p.link ? `<a class="link" href="${p.link}">View full project</a>` : ""}
       </div>`;
     let i = 0;
-    el.querySelectorAll(".arrows button").forEach(b=>b.addEventListener("click",()=>{
+    const buttons = el.querySelectorAll(".arrows button");
+    buttons.forEach(b=>b.addEventListener("click",()=>{
       const imgs = el.querySelectorAll(".gallery img");
       if(!imgs.length) return;
-      imgs[i % imgs.length].hidden = true;
-      i = (i + Number(b.dataset.d) + imgs.length) % imgs.length;
-      imgs[i].hidden = false;
+      const nextIndex = (i + Number(b.dataset.d) + imgs.length) % imgs.length;
+      const nextImage = imgs[nextIndex];
+      if(nextImage.dataset.src){
+        buttons.forEach(button=>button.disabled=true);
+        nextImage.addEventListener("load",()=>{
+          imgs[i].hidden = true;
+          i = nextIndex;
+          nextImage.hidden = false;
+          buttons.forEach(button=>button.disabled=false);
+        },{once:true});
+        nextImage.addEventListener("error",()=>{
+          nextImage.remove();
+          buttons.forEach(button=>button.disabled=false);
+        },{once:true});
+        nextImage.src = nextImage.dataset.src;
+        delete nextImage.dataset.src;
+        return;
+      }
+      imgs[i].hidden = true;
+      i = nextIndex;
+      nextImage.hidden = false;
     }));
     group.appendChild(el);
   });
